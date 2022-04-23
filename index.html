@@ -1,0 +1,136 @@
+<html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <style>
+            body {
+                background: white; 
+                padding: 16px;
+            }
+
+            .chart-container {
+                position: relative;
+                margin: 30px 5px;
+                height: 30vh;
+                border: 1px darkgray;
+                border-style: solid;
+                background-image: linear-gradient(to right bottom, #eef0f2, #f1f2f4, #f4f4f6, #f7f7f7, #f9f9f9);
+            }
+
+            #overlay {
+                background: white; 
+                height: 100%;
+                width: 100%;
+                position: fixed;
+                z-index: 100;
+            }
+            
+            .loader {
+                border: 16px solid #f3f3f3;
+                border-top: 16px solid #3498db;
+                border-radius: 50%;
+                width: 120px;
+                height: 120px;
+                animation: spin 2s linear infinite;
+                position: absolute;
+                margin: auto;
+                top:0;
+                bottom: 0;
+                left: 0;
+                right: 0;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="overlay">
+            <div class="loader"></div>
+        </div>
+        <div id="charts"></div>
+        <script>
+            const initChart = (name, title, labels, values) => {
+                const options = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            stacked: true,
+                            grid: {
+                                display: true,
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: title,
+                            font: {
+                                size: 20
+                            }
+                        },
+                        legend: {
+                            display: false,
+                        }
+                    }
+                };
+
+                const data = {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        fill: false,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                };
+
+                const canvas = document.createElement('canvas');
+
+                const canvasDiv = document.createElement('div');
+                canvasDiv.className='chart-container';
+                canvasDiv.appendChild(canvas);
+                   
+                const container = document.getElementById('charts');
+                container.appendChild(canvasDiv);
+                
+                const ctx = canvas.getContext('2d');
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    options: options,
+                    data: data
+                });
+            };
+            
+            (async () => {
+                const [sensorTempHum, sensorAir] = await axios.all([
+                    axios.get('https://data.sensor.community/airrohr/v1/sensor/71551/'),
+                    axios.get('https://data.sensor.community/airrohr/v1/sensor/71550/')
+                ]);
+                
+                const humidity = sensorTempHum.data.map(d => d.sensordatavalues[0].value);
+                const temperature = sensorTempHum.data.map(d => d.sensordatavalues[1].value);
+                const timestamps = sensorTempHum.data.map(d => d.timestamp);
+
+                const fineParticles25 = sensorAir.data.map(d => d.sensordatavalues[0].value);
+                const fineParticles100 = sensorAir.data.map(d => d.sensordatavalues[1].value);
+                const fineParticlesTimestamps = sensorAir.data.map(d => d.timestamp);
+
+                initChart('humidityChart', 'Humidity', timestamps, humidity);
+                initChart('temperatureChart', 'Temperature', timestamps, temperature);
+                initChart('fineParticles25Chart', 'Particles 2.5', fineParticlesTimestamps, fineParticles25);
+                initChart('fineParticles100Chart', 'Particles 10', fineParticlesTimestamps, fineParticles100);
+
+                document.getElementById('overlay').style.display = 'None';
+            })();
+        </script>
+    </body>
+</html>
