@@ -2,7 +2,9 @@
     <head>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-        <script src="data.js"></script>
+        <script src="charthandling.js" type="module"></script>
+        <script src="loader.js" type="module"></script>
+        <script src="datastore.js" type="module"></script>
         <link rel="stylesheet" href="styles.css">
     </head>
     <body onload="loadData()">
@@ -10,5 +12,9 @@
             <div class="loader"></div>
         </div>
         <div id="charts"></div>
+        <script type="module">
+            import { loadData } from './loader.js'
+            window.onload = loadData;
+        </script>
     </body>
 </html>
