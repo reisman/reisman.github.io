@@ -1,34 +1,53 @@
-const initChart = (name, title, labels, values) => {
-    const options = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                stacked: true,
-                grid: {
-                    display: true,
-                }
-            },
-            x: {
-                grid: {
-                    display: false
-                }
+const getChartOptions = title => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+        y: {
+            stacked: true,
+            grid: {
+                display: true,
             }
         },
-        plugins: {
-            title: {
-                display: true,
-                text: title,
-                font: {
-                    size: 20
-                }
-            },
-            legend: {
-                display: false,
+        x: {
+            grid: {
+                display: false
             }
         }
-    };
+    },
+    plugins: {
+        title: {
+            display: true,
+            text: title,
+            font: {
+                size: 20
+            }
+        },
+        legend: {
+            display: false,
+        }
+    }
+});
 
+const addChart = title => {
+    const canvas = document.createElement('canvas');
+
+    const canvasDiv = document.createElement('div');
+    canvasDiv.className = 'chart-container';
+    canvasDiv.appendChild(canvas);
+
+    document
+        .getElementById('charts')
+        .appendChild(canvasDiv);
+
+    const ctx = canvas.getContext('2d');
+    const options = getChartOptions(title);
+    return new Chart(ctx, {
+        type: 'line',
+        options: options
+    });
+}
+
+const updateChart = (chart, labels, values) => {
     const data = {
         labels: labels,
         datasets: [{
@@ -39,51 +58,47 @@ const initChart = (name, title, labels, values) => {
         }]
     };
 
-    const canvas = document.createElement('canvas');
-
-    const canvasDiv = document.createElement('div');
-    canvasDiv.className = 'chart-container';
-    canvasDiv.appendChild(canvas);
-
-    const container = document.getElementById('charts');
-    container.appendChild(canvasDiv);
-
-    const ctx = canvas.getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'line',
-        options: options,
-        data: data
-    });
+    chart.data = data;
+    chart.update();
 };
 
+class DataContainer {
+    constructor() {
+        this.data = [];
+        this.labels = [];
+    }
+
+    append(newData) {
+        const lastLabel = this.labels[this.labels.length - 1];
+        const dataToAdd = newData
+            .filter(d => !lastLabel || new Date(d.time) > new Date(lastLabel))
+            .sort((a, b) => new Date(a.time) - new Date(b.time));
+        this.data.push(...dataToAdd.map(d => d.data));
+        this.labels.push(...dataToAdd.map(d => d.time));
+    }
+}
+
 const loadData = async () => {
-    /*
-    const [sensorTempHum, sensorAir] = await axios.all([
-        axios.get('https://data.sensor.community/airrohr/v1/sensor/71551/'),
-        axios.get('https://data.sensor.community/airrohr/v1/sensor/71550/')
-    ]);
-    
-    const humidity = sensorTempHum.data.map(d => d.sensordatavalues[0].value);
-    const temperature = sensorTempHum.data.map(d => d.sensordatavalues[1].value);
-    const timestamps = sensorTempHum.data.map(d => d.timestamp);
- 
-    const fineParticles25 = sensorAir.data.map(d => d.sensordatavalues[0].value);
-    const fineParticles100 = sensorAir.data.map(d => d.sensordatavalues[1].value);
-    const fineParticlesTimestamps = sensorAir.data.map(d => d.timestamp);
-    */
+    const [humChart, humData] = [addChart('Humidity'), new DataContainer()];
+    const [tempChart, tempData] = [addChart('Temperature'), new DataContainer()];
+    const [part1Chart, part1Data] = [addChart('Particles 2.5'), new DataContainer()];
+    const [part2Chart, part2Data] = [addChart('Particles 10'), new DataContainer()];
 
-    const humidity = [11, 12, 14, 9]
-    const temperature = [11, 12, 14, 9]
-    const timestamps = [1, 2, 3, 4]
+    const update = async(url, dataA, chartA, dataB, chartB) => {
+        const sensor = await axios.get(url);
+        dataA.append(sensor.data.map(d => ({data:d.sensordatavalues[0].value, time:d.timestamp})));   
+        dataB.append(sensor.data.map(d => ({data:d.sensordatavalues[1].value, time:d.timestamp}))); 
 
-    const fineParticles25 = [11, 12, 14, 9]
-    const fineParticles100 = [11, 12, 14, 9]
-    const fineParticlesTimestamps = [1, 2, 3, 4]
+        updateChart(chartA, dataA.labels, dataA.data);
+        updateChart(chartB, dataB.labels, dataB.data);
+        document.getElementById('overlay').style.display = 'None';
+    };
 
-    initChart('humidityChart', 'Humidity', timestamps, humidity);
-    initChart('temperatureChart', 'Temperature', timestamps, temperature);
-    initChart('fineParticles25Chart', 'Particles 2.5', fineParticlesTimestamps, fineParticles25);
-    initChart('fineParticles100Chart', 'Particles 10', fineParticlesTimestamps, fineParticles100);
+    const updateHumAndTemp = () => update('https://data.sensor.community/airrohr/v1/sensor/71551/', humData, humChart, tempData, tempChart);
+    const updateParticles = () => update('https://data.sensor.community/airrohr/v1/sensor/71550/', part1Data, part1Chart, part2Data, part2Chart);
 
-    document.getElementById('overlay').style.display = 'None';
+    updateHumAndTemp();
+    updateParticles();
+    setInterval(updateHumAndTemp, 60000);
+    setInterval(updateParticles, 60000);
 };
